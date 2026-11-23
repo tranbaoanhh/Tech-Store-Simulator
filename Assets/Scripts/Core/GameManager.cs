@@ -8,29 +8,68 @@ namespace TechStoreSimulator
         [SerializeField] int startingMoney = 10000000;
         public int Money { get; private set; }
         public int ItemsPurchased { get; private set; }
-        string status = "Cham E vao san pham de mua.";
+        public ProductService Products { get; private set; }
+        public FinanceService Finance { get; private set; }
+        public SalesService Sales { get; private set; }
+        public string Status { get; private set; } = "Cham E vao san pham de mua.";
 
         void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             Money = startingMoney;
+            Products = new ProductService();
+            Finance = new FinanceService();
+            Sales = new SalesService(Products, Finance);
+        }
+
+        void Start()
+        {
+            // Keep existing scenes playable even if they were not regenerated with the demo builder.
+            if (FindObjectOfType<SalesUI>() == null) gameObject.AddComponent<SalesUI>();
+            if (FindObjectOfType<CustomerAI>() == null)
+            {
+                GameObject customer = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                customer.name = "Demo Customer";
+                customer.transform.position = new Vector3(2.5f, 1f, -4f);
+                customer.AddComponent<CustomerAI>();
+            }
         }
 
         public bool TrySpend(int amount)
         {
-            if (amount < 0 || Money < amount) { status = "Khong du tien!"; return false; }
+            if (amount <= 0 || Money < amount) { Status = "Khong du tien!"; return false; }
             Money -= amount;
             ItemsPurchased++;
-            status = "Mua thanh cong!";
+            Status = "Mua thanh cong!";
             return true;
+        }
+
+        public void RecordStoreSale(int amount)
+        {
+            if (amount <= 0 || Money > int.MaxValue - amount) return;
+            Money += amount;
+        }
+
+        public void SetStatus(string message)
+        {
+            Status = message;
+        }
+
+        public bool TrySell(string productId, int quantity, out Order order, out string error)
+        {
+            if (Sales == null) { order = null; error = "Dich vu ban hang chua san sang."; Status = error; return false; }
+            bool success = Sales.TrySell(productId, quantity, out order, out error);
+            Status = error;
+            if (success) RecordStoreSale(order.total);
+            return success;
         }
 
         void OnGUI()
         {
             GUI.Box(new Rect(15, 15, 360, 92), "TECH STORE SIMULATOR - PROTOTYPE");
             GUI.Label(new Rect(30, 42, 330, 22), "Tien: " + Money.ToString("N0") + " VND | Da mua: " + ItemsPurchased);
-            GUI.Label(new Rect(30, 66, 330, 22), status);
+            GUI.Label(new Rect(30, 66, 330, 22), Status);
         }
     }
 }
