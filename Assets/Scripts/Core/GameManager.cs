@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace TechStoreSimulator
@@ -6,6 +7,8 @@ namespace TechStoreSimulator
     {
         public static GameManager Instance { get; private set; }
         [SerializeField] int startingMoney = 10000000;
+        [SerializeField, Min(1)] int demoCustomerCount = 5;
+        [SerializeField, Min(0f)] float timeBetweenCustomers = 3f;
         public int Money { get; private set; }
         public int ItemsPurchased { get; private set; }
         public ProductService Products { get; private set; }
@@ -27,12 +30,21 @@ namespace TechStoreSimulator
         {
             // Keep existing scenes playable even if they were not regenerated with the demo builder.
             if (FindObjectOfType<SalesUI>() == null) gameObject.AddComponent<SalesUI>();
-            if (FindObjectOfType<CustomerAI>() == null)
+            StartCoroutine(RunDemoCustomers());
+        }
+
+        IEnumerator RunDemoCustomers()
+        {
+            int created = FindObjectOfType<CustomerAI>() != null ? 1 : 0;
+            while (created < demoCustomerCount)
             {
+                yield return new WaitUntil(() => FindObjectOfType<CustomerAI>() == null);
+                if (created > 0) yield return new WaitForSeconds(timeBetweenCustomers);
                 GameObject customer = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                customer.name = "Demo Customer";
+                customer.name = "Demo Customer " + (created + 1);
                 customer.transform.position = new Vector3(2.5f, 1f, -4f);
                 customer.AddComponent<CustomerAI>();
+                created++;
             }
         }
 
@@ -60,6 +72,15 @@ namespace TechStoreSimulator
         {
             if (Sales == null) { order = null; error = "Dich vu ban hang chua san sang."; Status = error; return false; }
             bool success = Sales.TrySell(productId, quantity, out order, out error);
+            Status = error;
+            if (success) RecordStoreSale(order.total);
+            return success;
+        }
+
+        public bool TrySell(string productId, int quantity, int customerBudget, out Order order, out string error)
+        {
+            if (Sales == null) { order = null; error = "Dich vu ban hang chua san sang."; Status = error; return false; }
+            bool success = Sales.TrySell(productId, quantity, customerBudget, out order, out error);
             Status = error;
             if (success) RecordStoreSale(order.total);
             return success;

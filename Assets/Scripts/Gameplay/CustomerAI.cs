@@ -4,27 +4,37 @@ using UnityEngine;
 
 namespace TechStoreSimulator
 {
-    /// <summary>A lightweight demo customer that walks in, buys one stocked item, then leaves.</summary>
+    /// <summary>Demo customer: browses a stocked shelf, requests an item, pays, then leaves.</summary>
     public class CustomerAI : MonoBehaviour
     {
-        [SerializeField] Vector3 checkoutPosition = new Vector3(0f, 0f, 2.2f);
-        [SerializeField] Vector3 exitPosition = new Vector3(0f, 0f, -5f);
+        [SerializeField] Vector3 checkoutPosition = new Vector3(0f, 1f, 2.2f);
+        [SerializeField] Vector3 exitPosition = new Vector3(0f, 1f, -5f);
         [SerializeField, Min(0.1f)] float moveSpeed = 1.5f;
-        [SerializeField, Min(0f)] float pauseAtCheckout = 1f;
+        [SerializeField, Min(0f)] float pauseAtShelf = 1.2f;
+        [SerializeField, Min(0f)] float pauseAtCheckout = 0.8f;
+        [SerializeField] int minBudget = 100000;
+        [SerializeField] int maxBudget = 1000000;
 
-        bool leaving;
+        Vector3 destination;
+        Customer customer;
         bool completed;
 
         void Start()
         {
             if (GameManager.Instance == null) { enabled = false; return; }
+            customer = new Customer
+            {
+                id = System.Guid.NewGuid().ToString("N"),
+                displayName = "Khach " + Random.Range(100, 999),
+                budget = Random.Range(minBudget, maxBudget + 1)
+            };
+            destination = transform.position;
             StartCoroutine(VisitStore());
         }
 
         void Update()
         {
             if (completed) return;
-            Vector3 destination = leaving ? exitPosition : checkoutPosition;
             transform.position = Vector3.MoveTowards(transform.position, destination, moveSpeed * Time.deltaTime);
             Vector3 direction = destination - transform.position;
             direction.y = 0f;
@@ -34,25 +44,46 @@ namespace TechStoreSimulator
         IEnumerator VisitStore()
         {
             yield return new WaitUntil(() => GameManager.Instance != null && GameManager.Instance.Products != null);
-            yield return new WaitUntil(() => Vector3.Distance(transform.position, checkoutPosition) < 0.05f);
+
+            List<ProductInteraction> availableDisplays = new List<ProductInteraction>();
+            foreach (ProductInteraction display in FindObjectsOfType<ProductInteraction>())
+            {
+                if (!display.gameObject.activeInHierarchy) continue;
+                if (GameManager.Instance.Products.TryGet(display.ProductId, out Product product) && product.stock > 0)
+                    availableDisplays.Add(display);
+            }
+
+            if (availableDisplays.Count == 0)
+            {
+                GameManager.Instance.SetStatus(customer.displayName + " roi di: cua hang het hang.");
+                yield return LeaveStore();
+                yield break;
+            }
+
+            ProductInteraction chosenDisplay = availableDisplays[Random.Range(0, availableDisplays.Count)];
+            destination = new Vector3(chosenDisplay.transform.position.x, transform.position.y, chosenDisplay.transform.position.z - 0.9f);
+            GameManager.Instance.SetStatus(customer.displayName + " dang xem " + chosenDisplay.name + ".");
+            yield return new WaitUntil(() => Vector3.Distance(transform.position, destination) < 0.05f);
+            yield return new WaitForSeconds(pauseAtShelf);
+
+            destination = checkoutPosition;
+            GameManager.Instance.SetStatus(customer.displayName + " mang hang den quay thanh toan.");
+            yield return new WaitUntil(() => Vector3.Distance(transform.position, destination) < 0.05f);
             yield return new WaitForSeconds(pauseAtCheckout);
 
-            List<Product> available = new List<Product>();
-            foreach (Product product in GameManager.Instance.Products.Products)
-                if (product != null && product.stock > 0 && product.price > 0) available.Add(product);
-
-            if (available.Count == 0)
-            {
-                GameManager.Instance.SetStatus("Khach roi di: cua hang het hang.");
-            }
+            bool success = GameManager.Instance.TrySell(chosenDisplay.ProductId, 1, customer.budget, out Order order, out string error);
+            if (success)
+                GameManager.Instance.SetStatus(customer.displayName + " mua " + chosenDisplay.name + " thanh cong: " + order.total.ToString("N0") + " VND.");
             else
-            {
-                Product selected = available[Random.Range(0, available.Count)];
-                GameManager.Instance.TrySell(selected.id, 1, out _, out _);
-            }
+                GameManager.Instance.SetStatus(customer.displayName + " khong mua duoc: " + error);
 
-            leaving = true;
-            yield return new WaitUntil(() => Vector3.Distance(transform.position, exitPosition) < 0.05f);
+            yield return LeaveStore();
+        }
+
+        IEnumerator LeaveStore()
+        {
+            destination = exitPosition;
+            yield return new WaitUntil(() => Vector3.Distance(transform.position, destination) < 0.05f);
             completed = true;
             gameObject.SetActive(false);
         }

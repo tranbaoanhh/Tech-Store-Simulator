@@ -15,6 +15,11 @@ namespace TechStoreSimulator
 
         public bool TrySell(string productId, int quantity, out Order order, out string error)
         {
+            return TrySell(productId, quantity, int.MaxValue, out order, out error);
+        }
+
+        public bool TrySell(string productId, int quantity, int customerBudget, out Order order, out string error)
+        {
             order = null;
             if (quantity <= 0) { error = "So luong mua phai lon hon 0."; return false; }
             if (!products.TryGet(productId, out Product product)) { error = "Khong tim thay san pham."; return false; }
@@ -23,6 +28,7 @@ namespace TechStoreSimulator
             if ((long)product.price * quantity > int.MaxValue) { error = "Tong tien vuot gioi han."; return false; }
 
             int total = product.price * quantity;
+            if (customerBudget < total) { error = "Khach khong du ngan sach."; return false; }
             if (!products.TryRemoveStock(productId, quantity)) { error = "Khong the cap nhat ton kho."; return false; }
             if (!finance.TryRecordSale(total))
             {
