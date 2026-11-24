@@ -13,6 +13,7 @@ namespace TechStoreSimulator
         void Start()
         {
             RegisterProduct();
+            RefreshVisibility();
         }
 
         public void Configure(string productName, int cost)
@@ -29,6 +30,13 @@ namespace TechStoreSimulator
                 GameManager.Instance.Products.Register(new Product { id = ProductId, displayName = displayName, price = price, stock = initialStock });
         }
 
+        public void RefreshVisibility()
+        {
+            if (GameManager.Instance == null || GameManager.Instance.Products == null) return;
+            if (GameManager.Instance.Products.TryGet(ProductId, out Product product))
+                gameObject.SetActive(product.stock > 0);
+        }
+
         public void TryBuy()
         {
             RegisterProduct();
@@ -36,7 +44,7 @@ namespace TechStoreSimulator
             if (product.stock <= 0) { GameManager.Instance.SetStatus("San pham da het hang."); return; }
             if (!GameManager.Instance.TrySpend(product.price)) return;
             GameManager.Instance.Products.TryRemoveStock(ProductId, 1);
-            gameObject.SetActive(false); // A physical display item is taken; shared stock remains authoritative.
+            RefreshVisibility();
         }
     }
 }

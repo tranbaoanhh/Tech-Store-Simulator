@@ -73,7 +73,11 @@ namespace TechStoreSimulator
             if (Sales == null) { order = null; error = "Dich vu ban hang chua san sang."; Status = error; return false; }
             bool success = Sales.TrySell(productId, quantity, out order, out error);
             Status = error;
-            if (success) RecordStoreSale(order.total);
+            if (success)
+            {
+                RecordStoreSale(order.total);
+                RefreshProductDisplays(productId);
+            }
             return success;
         }
 
@@ -82,8 +86,18 @@ namespace TechStoreSimulator
             if (Sales == null) { order = null; error = "Dich vu ban hang chua san sang."; Status = error; return false; }
             bool success = Sales.TrySell(productId, quantity, customerBudget, out order, out error);
             Status = error;
-            if (success) RecordStoreSale(order.total);
+            if (success)
+            {
+                RecordStoreSale(order.total);
+                RefreshProductDisplays(productId);
+            }
             return success;
+        }
+
+        void RefreshProductDisplays(string productId)
+        {
+            foreach (ProductInteraction display in FindObjectsOfType<ProductInteraction>())
+                if (display.ProductId == productId) display.RefreshVisibility();
         }
 
         void OnGUI()
