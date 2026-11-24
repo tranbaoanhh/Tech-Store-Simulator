@@ -39,6 +39,12 @@ public static class TechStoreSceneBuilder
         cameraGo.AddComponent<Camera>();
         cameraGo.AddComponent<AudioListener>();
         new GameObject("GameManager").AddComponent<GameManager>();
+        new GameObject("Sales UI").AddComponent<SalesUI>();
+
+        GameObject customer = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        customer.name = "Demo Customer";
+        customer.transform.position = new Vector3(2.5f, 1f, -4f);
+        customer.AddComponent<CustomerAI>();
 
         GameObject lightGo = new GameObject("Sun Light");
         var light = lightGo.AddComponent<Light>();
